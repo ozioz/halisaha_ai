@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HalısahaAI - Pro Maç Analizi</title>
+
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;700&family=Inter:wght@300;400;600;800&display=swap"
+        rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Oswald', 'sans-serif'],
+                    },
+                    colors: {
+                        'hali-dark': '#020617',
+                        'hali-blue': '#3b82f6',
+                        'hali-cyan': '#06b6d4',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #020617;
+            color: white;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Pitch Background for Formation View */
+        .pitch-bg {
+            background-color: #1a472a;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.1) 2px, transparent 2px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.1) 2px, transparent 2px);
+            background-size: 100px 100px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- ICONS (Inline SVGs) ---
+        const Icons = {
+            Upload: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>,
+            Activity: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>,
+            Trophy: ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" /></svg>,
+            Play: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg>,
+            Film: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><line x1="7" y1="3" x2="7" y2="21" /><line x1="17" y1="3" x2="17" y2="21" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="7" x2="7" y2="7" /><line x1="3" y1="17" x2="7" y2="17" /><line x1="17" y1="7" x2="21" y2="7" /><line x1="17" y1="17" x2="21" y2="17" /></svg>,
+            Zap: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>,
+            Share2: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></svg>,
+            X: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>,
+            LayoutGrid: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1" /><rect width="7" height="7" x="14" y="3" rx="1" /><rect width="7" height="7" x="14" y="14" rx="1" /><rect width="7" height="7" x="3" y="14" rx="1" /></svg>,
+            Map: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" /></svg>,
+            MessageSquare: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+        };
+
+        // --- COMPONENTS ---
+
+        const PlayerCard = ({ player, isMVP = false, minimal = false }) => {
+            const [imgError, setImgError] = useState(false);
+
+            if (minimal) {
+                return (
+                    <div className="flex items-center gap-2 p-2 bg-slate-800/50 rounded-lg border border-white/5">
+                        <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-700">
+                            <img src={player.avatarUrl} className="w-full h-full object-cover" onError={() => setImgError(true)} />
+                        </div>
+                        <div>
+                            <div className="text-xs font-bold text-white">{player.name}</div>
+                            <div className="text-[10px] text-slate-400">{player.position} • {player.rating}</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className={`relative group w-full aspect-[3/4.2] rounded-xl overflow-hidden transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl ${isMVP ? 'ring-2 ring-yellow-400 shadow-yellow-400/20 scale-105 z-10' : 'hover:shadow-blue-500/30'}`}>
+                    <div className={`absolute inset-0 bg-gradient-to-br ${isMVP ? 'from-yellow-900/80 via-black to-black' : 'from-slate-800 via-slate-950 to-black'}`}></div>
+                    <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
+
+                    <div className="absolute top-2 left-3 text-white z-10 flex flex-col items-center leading-tight">
+                        <span className={`text-3xl font-display font-bold ${isMVP ? 'text-yellow-400' : 'text-white'}`}>{player.rating}</span>
+                        <span className="text-xs font-bold opacity-80">{player.position}</span>
+                    </div>
+
+                    <div className="absolute top-8 right-0 left-0 bottom-1/2 flex items-end justify-center z-0">
+                        <div className={`w-24 h-24 rounded-full border-2 ${isMVP ? 'border-yellow-400' : 'border-slate-600'} overflow-hidden bg-slate-800`}>
+                            {!imgError ? <img src={player.avatarUrl} className="w-full h-full object-cover" onError={() => setImgError(true)} /> : <div className="w-full h-full bg-slate-700"></div>}
+                        </div>
+                    </div>
+
+                    <div className="absolute bottom-0 left-0 right-0 h-[55%] bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col justify-end p-3">
+                        <div className="text-center mb-2">
+                            <h3 className={`font-bold text-sm truncate ${isMVP ? 'text-yellow-300' : 'text-white'}`}>{player.name}</h3>
+                            <div className="flex items-center justify-center gap-1 text-[10px] text-gray-400">
+                                <Icons.Activity /> <span>{player.distance} km</span>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] px-1">
+                            <div className="flex justify-between"><span className="text-gray-500">HIZ</span> <span className="text-white font-bold">{player.stats.pace}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-500">ŞUT</span> <span className="text-white font-bold">{player.stats.shoot}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-500">PAS</span> <span className="text-white font-bold">{player.stats.pass}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-500">DRİ</span> <span className="text-white font-bold">{player.stats.dribble}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-500">DEF</span> <span className="text-white font-bold">{player.stats.defense}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-500">FİZ</span> <span className="text-white font-bold">{player.stats.physical}</span></div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const FormationView = ({ teamA, teamB }) => {
+            // Simple 2-3-1 Formation Positions
+            const positions = [
+                { top: '85%', left: '50%' }, // GK
+                { top: '65%', left: '30%' }, // DEF
+                { top: '65%', left: '70%' }, // DEF
+                { top: '40%', left: '20%' }, // MID
+                { top: '40%', left: '50%' }, // MID
+                { top: '40%', left: '80%' }, // MID
+                { top: '15%', left: '50%' }, // FWD
+            ];
+
+            return (
+                <div className="w-full aspect-[2/3] md:aspect-video pitch-bg rounded-xl border-2 border-white/10 relative overflow-hidden shadow-2xl">
+                    {/* Center Circle */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 border-2 border-white/20 rounded-full"></div>
+                    <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/20"></div>
+
+                    {/* Team A (Bottom - Blue) */}
+                    {teamA.map((p, i) => (
+                        <div key={p.id} className="absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group cursor-pointer"
+                            style={{ bottom: positions[i].top, left: positions[i].left }}>
+                            <div className="w-8 h-8 rounded-full bg-blue-600 border-2 border-white text-[10px] font-bold flex items-center justify-center shadow-lg group-hover:scale-125 transition-transform">
+                                {p.rating}
+                            </div>
+                            <div className="mt-1 text-[10px] font-bold bg-black/50 px-1 rounded text-white whitespace-nowrap">{p.name.split(' ')[0]}</div>
+                        </div>
+                    ))}
+
+                    {/* Team B (Top - Red - Inverted for visual simplicity or just placed on top half) */}
+                    {teamB.map((p, i) => (
+                        <div key={p.id} className="absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group cursor-pointer"
+                            style={{ top: positions[i].top, left: positions[i].left }}>
+                            <div className="w-8 h-8 rounded-full bg-red-600 border-2 border-white text-[10px] font-bold flex items-center justify-center shadow-lg group-hover:scale-125 transition-transform">
+                                {p.rating}
+                            </div>
+                            <div className="mt-1 text-[10px] font-bold bg-black/50 px-1 rounded text-white whitespace-nowrap">{p.name.split(' ')[0]}</div>
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+
+        const RadarScan = () => (
+            <div className="relative w-64 h-64 mx-auto my-8">
+                <div className="absolute inset-0 bg-hali-blue/20 rounded-full animate-pulse"></div>
+                <div className="absolute inset-0 border-2 border-hali-blue/50 rounded-full"></div>
+                <div className="absolute inset-4 border border-hali-blue/30 rounded-full"></div>
+                <div className="absolute inset-1/2 w-2 h-2 bg-hali-blue rounded-full shadow-[0_0_20px_rgba(59,130,246,1)]"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-hali-blue/40 to-transparent w-1/2 h-full origin-right animate-[spin_3s_linear_infinite] rounded-full" style={{ transformOrigin: '50% 50%' }}></div>
+
+                {/* Simulated Players Dots */}
+                <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-white rounded-full animate-ping" style={{ animationDelay: '0.5s' }}></div>
+                <div className="absolute bottom-1/3 right-1/4 w-2 h-2 bg-red-500 rounded-full animate-ping" style={{ animationDelay: '1.2s' }}></div>
+                <div className="absolute top-1/2 right-1/3 w-2 h-2 bg-white rounded-full animate-ping" style={{ animationDelay: '2.1s' }}></div>
+            </div>
+        );
+
+        const TriviaCarousel = () => {
+            const tips = [
+                "Biliyor muydunuz? Futsal topu, normal futbol topuna göre %30 daha az seker.",
+                "Dünyanın en eski futbol kulübü Sheffield FC, 1857 yılında kurulmuştur.",
+                "Bir maçta en çok gol atan oyuncu rekoru, 13 golle Archie Thompson'a aittir.",
+                "Halısaha maçlarında ideal ısınma süresi 15-20 dakikadır.",
+                "Yapay zeka modelimiz, oyuncuların koşu mesafesini %98 doğrulukla ölçer.",
+                "İlk futbol kuralları 1863 yılında İngiltere'de yazılmıştır.",
+                "Futsal, 1930 yılında Uruguay'da Juan Carlos Ceriani tarafından icat edilmiştir."
+            ];
+            const [index, setIndex] = useState(0);
+
+            useEffect(() => {
+                const timer = setInterval(() => {
+                    setIndex(prev => (prev + 1) % tips.length);
+                }, 6000);
+                return () => clearInterval(timer);
+            }, []);
+
+            return (
+                <div className="h-24 flex items-center justify-center max-w-lg mx-auto text-center px-4">
+                    <p key={index} className="text-slate-400 text-sm italic animate-fade-in">
+                        <span className="text-hali-blue font-bold not-italic block mb-2 text-xs tracking-widest uppercase">BUNLARI BİLİYOR MUYDUNUZ?</span>
+                        "{tips[index]}"
+                    </p>
+                </div>
+            );
+        };
+
+        const StepIndicator = ({ currentStep }) => {
+            const steps = [
+                { id: 1, label: 'Video İndiriliyor', icon: Icons.Upload },
+                { id: 2, label: 'Görüntü İşleniyor', icon: Icons.Zap },
+                { id: 3, label: 'İstatistikler', icon: Icons.Activity },
+                { id: 4, label: 'Rapor Hazırlanıyor', icon: Icons.Trophy },
+            ];
+
+            return (
+                <div className="flex items-center justify-center gap-2 md:gap-4 w-full max-w-2xl mx-auto mb-8">
+                    {steps.map((step, i) => (
+                        <div key={step.id} className="flex items-center">
+                            <div className={`flex flex-col items-center gap-2 transition-all duration-500 ${currentStep >= step.id ? 'opacity-100 scale-105' : 'opacity-40 scale-95'}`}>
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors duration-500 ${currentStep >= step.id ? 'bg-hali-blue border-hali-blue text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]' : 'bg-slate-900 border-slate-700 text-slate-500'}`}>
+                                    <step.icon />
+                                </div>
+                                <span className={`text-[10px] font-bold uppercase tracking-wider ${currentStep >= step.id ? 'text-hali-blue' : 'text-slate-600'}`}>{step.label}</span>
+                            </div>
+                            {i < steps.length - 1 && (
+                                <div className={`w-8 md:w-16 h-0.5 mx-2 transition-colors duration-500 ${currentStep > step.id ? 'bg-hali-blue' : 'bg-slate-800'}`}></div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [state, setState] = useState('idle'); // idle, analyzing, results
+            const [progress, setProgress] = useState(0);
+            const [statusText, setStatusText] = useState('Video Yükleniyor...');
+            const [data, setData] = useState(null);
+            const [highlight, setHighlight] = useState(null);
+            const [viewMode, setViewMode] = useState('grid');
+            const [youtubeUrl, setYoutubeUrl] = useState('');
+            const [analysisStep, setAnalysisStep] = useState(1); // 1: Download, 2: Vision, 3: Stats, 4: Report
+            const [uploadedVideoUrl, setUploadedVideoUrl] = useState(null);
+
+            const startAnalysis = async (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                // Create a local URL for the video to play in highlights
+                setUploadedVideoUrl(URL.createObjectURL(file));
+
+                setState('analyzing');
+                setProgress(0);
+                setAnalysisStep(1);
+                setStatusText('Video Yükleniyor...');
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    // Simulate progress while waiting for response
+                    const interval = setInterval(() => {
+                        setProgress(prev => {
+                            if (prev >= 95) return 95;
+                            return prev + 1; // Slower increment for smoother feel
+                        });
+
+                        // Update steps based on progress simulation
+                        setAnalysisStep(prev => {
+                            if (progress > 80) return 4;
+                            if (progress > 50) return 3;
+                            if (progress > 20) return 2;
+                            return prev;
+                        });
+
+                        setStatusText(prev => {
+                            if (progress > 80) return 'Maç Raporu Oluşturuluyor...';
+                            if (progress > 50) return 'İstatistikler Hesaplanıyor...';
+                            if (progress > 20) return 'Oyuncular ve Top Takip Ediliyor...';
+                            return prev;
+                        });
+                    }, 200);
+
+                    const response = await fetch('http://localhost:8000/analyze', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    clearInterval(interval);
+
+                    if (!response.ok) {
+                        throw new Error('Analiz hatası');
+                    }
+
+                    const result = await response.json();
+                    setData(result);
+                    setProgress(100);
+                    setAnalysisStep(4);
+                    setStatusText('Analiz Tamamlandı!');
+                    setTimeout(() => setState('results'), 800);
+
+                } catch (error) {
+                    console.error("Error:", error);
+                    alert("Analiz sırasında bir hata oluştu. Lütfen tekrar deneyin.");
+                    setState('idle');
+                }
+            };
+
+            const startYoutubeAnalysis = async () => {
+                if (!youtubeUrl) return;
+
+                // For YouTube, we can't easily get a local blob URL without downloading it to the browser, 
+                // but we can use the youtubeUrl for the player if we embed it.
+                // For now, we'll assume the backend handles the download and we might just show the link.
+                setUploadedVideoUrl(null);
+
+                setState('analyzing');
+                setProgress(0);
+                setAnalysisStep(1);
+                setStatusText('YouTube Videosu İndiriliyor...');
+
+                try {
+                    // Simulate progress with adaptive speed
+                    const interval = setInterval(() => {
+                        setProgress(prev => {
+                            // Phase 1: Fast start (0-30%)
+                            if (prev < 30) return prev + 1;
+                            // Phase 2: Downloading (30-60%)
+                            if (prev < 60) return prev + 0.2;
+                            // Phase 3: Processing (60-90%)
+                            if (prev < 90) return prev + 0.05;
+                            // Phase 4: Finalizing (90-99%)
+                            if (prev < 99) return prev + 0.01;
+                            return prev;
+                        });
+
+                        setAnalysisStep(prev => {
+                            if (progress > 85) return 4;
+                            if (progress > 60) return 3;
+                            if (progress > 30) return 2;
+                            return prev;
+                        });
+
+                        setStatusText(prev => {
+                            if (progress > 95) return 'İşlem beklenenden uzun sürüyor, lütfen bekleyin...';
+                            if (progress > 85) return 'Sonuçlar Derleniyor...';
+                            if (progress > 60) return 'Koşu Mesafeleri ve Hızlar Ölçülüyor...';
+                            if (progress > 30) return 'Yapay Zeka Görüntüyü İşliyor...';
+                            return prev;
+                        });
+                    }, 200);
+
+                    const response = await fetch('http://localhost:8000/analyze-youtube', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ url: youtubeUrl })
+                    });
+
+                    clearInterval(interval);
+
+                    if (!response.ok) {
+                        throw new Error('Analiz hatası');
+                    }
+
+                    const result = await response.json();
+                    setData(result);
+                    setProgress(100);
+                    setAnalysisStep(4);
+                    setStatusText('Analiz Tamamlandı!');
+                    setTimeout(() => setState('results'), 800);
+
+                } catch (error) {
+                    console.error("Error:", error);
+                    alert("YouTube analizi sırasında bir hata oluştu. Linki kontrol edip tekrar deneyin.");
+                    setState('idle');
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col font-sans bg-hali-dark text-slate-200 selection:bg-hali-blue selection:text-white">
+
+                    {/* Navbar */}
+                    <nav className="h-16 border-b border-white/5 glass-panel sticky top-0 z-50 px-6 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="bg-gradient-to-tr from-hali-blue to-hali-cyan p-1.5 rounded">
+                                <Icons.Zap />
+                            </div>
+                            <span className="font-display text-xl font-bold tracking-wide text-white">HALISAHA<span className="text-hali-blue">AI</span></span>
+                        </div>
+                        {state === 'results' && (
+                            <button onClick={() => setState('idle')} className="text-xs font-medium text-slate-400 hover:text-white transition-colors">YENİ ANALİZ</button>
+                        )}
+                    </nav>
+
+                    <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8 relative">
+
+                        {/* IDLE STATE */}
+                        {state === 'idle' && (
+                            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8 animate-fade-in">
+                                <div className="relative">
+                                    <div className="absolute inset-0 bg-hali-blue blur-3xl opacity-20 rounded-full animate-pulse"></div>
+                                    <Icons.Trophy className="w-24 h-24 text-hali-blue relative z-10" />
+                                </div>
+                                <h1 className="text-5xl md:text-7xl font-display font-bold leading-tight">
+                                    MAÇIN <span className="text-transparent bg-clip-text bg-gradient-to-r from-hali-blue to-hali-cyan">HİKAYESİNİ</span> YAZ
+                                </h1>
+                                <p className="text-slate-400 max-w-xl text-lg">
+                                    Yapay zeka destekli analiz ile halısaha maçlarını profesyonel bir deneyime dönüştür.
+                                </p>
+
+                                <div className="flex flex-col gap-4 w-full max-w-md">
+                                    <button onClick={() => document.getElementById('video-upload-input').click()} className="group relative px-8 py-4 bg-white text-hali-dark font-bold rounded-full hover:bg-hali-blue hover:text-white transition-all hover:scale-105 flex items-center justify-center gap-3">
+                                        <Icons.Upload /> MAÇ VİDEOSU YÜKLE
+                                    </button>
+                                    <input type="file" id="video-upload-input" className="hidden" accept="video/*" onChange={startAnalysis} />
+
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-px bg-white/10 flex-1"></div>
+                                        <span className="text-xs text-slate-500 font-bold">VEYA</span>
+                                        <div className="h-px bg-white/10 flex-1"></div>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder="YouTube Linki Yapıştır..."
+                                            value={youtubeUrl}
+                                            onChange={(e) => setYoutubeUrl(e.target.value)}
+                                            className="flex-1 bg-slate-800/50 border border-white/10 rounded-full px-6 py-3 text-sm focus:outline-none focus:border-hali-blue transition-colors"
+                                        />
+                                        <button onClick={startYoutubeAnalysis} className="px-6 py-3 bg-hali-blue hover:bg-hali-cyan text-white font-bold rounded-full transition-colors">
+                                            ANALİZ ET
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ANALYZING STATE */}
+                        {state === 'analyzing' && (
+                            <div className="flex flex-col items-center justify-center min-h-[70vh] w-full animate-fade-in">
+
+                                <StepIndicator currentStep={analysisStep} />
+
+                                <div className="relative w-full max-w-2xl bg-slate-900/50 rounded-3xl border border-white/5 p-8 backdrop-blur-sm overflow-hidden">
+                                    {/* Background Grid */}
+                                    <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px]"></div>
+
+                                    <div className="relative z-10 flex flex-col items-center">
+                                        <h2 className="text-2xl font-display font-bold text-white mb-2 tracking-wide">{statusText}</h2>
+                                        <div className="text-hali-blue font-mono font-bold text-xl mb-6">{Math.round(progress)}%</div>
+
+                                        <RadarScan />
+
+                                        <div className="w-full max-w-md space-y-2 mt-4">
+                                            <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                                <div className="h-full bg-gradient-to-r from-hali-blue to-hali-cyan transition-all duration-300 shadow-[0_0_10px_rgba(6,182,212,0.5)]" style={{ width: `${progress}%` }}></div>
+                                            </div>
+                                        </div>
+
+                                        <TriviaCarousel />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* RESULTS STATE */}
+                        {state === 'results' && data && (
+                            <div className="space-y-12 animate-fade-in">
+
+                                {/* SCOREBOARD */}
+                                <div className="flex justify-center items-center gap-8 py-6">
+                                    <div className="text-center">
+                                        <h2 className="text-3xl font-bold text-hali-blue">MAVİ TAKIM</h2>
+                                        <div className="text-6xl font-display font-bold text-white">{data.match_summary.scoreA}</div>
+                                    </div>
+                                    <div className="text-2xl font-bold text-slate-500">VS</div>
+                                    <div className="text-center">
+                                        <h2 className="text-3xl font-bold text-red-500">KIRMIZI TAKIM</h2>
+                                        <div className="text-6xl font-display font-bold text-white">{data.match_summary.scoreB}</div>
+                                    </div>
+                                </div>
+
+                                {/* Top Section: MVP & Highlights */}
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+                                    {/* MVP Card */}
+                                    <div className="lg:col-span-1 flex flex-col items-center text-center space-y-4">
+                                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-xs font-bold tracking-widest">
+                                            <Icons.Trophy className="w-4 h-4" /> MAÇIN ADAMI
+                                        </div>
+                                        <div className="w-64 relative">
+                                            <PlayerCard player={data.mvp} isMVP={true} />
+                                            {/* MVP Goals Badge */}
+                                            {data.mvp.goals > 0 && (
+                                                <div className="absolute -top-2 -right-2 bg-red-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 border-white shadow-lg z-20">
+                                                    {data.mvp.goals}⚽
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Highlights & Commentary */}
+                                    <div className="lg:col-span-2 space-y-6">
+
+                                        {/* Highlights Scroll */}
+                                        <div>
+                                            <h3 className="font-display font-bold text-xl mb-4 flex items-center gap-2"><Icons.Film /> ÖNEMLİ ANLAR</h3>
+                                            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                                                {data.highlights.map(h => (
+                                                    <div key={h.id} onClick={() => setHighlight(h)} className="flex-shrink-0 w-48 group cursor-pointer">
+                                                        <div className="aspect-video bg-slate-800 rounded-lg overflow-hidden relative border border-white/10">
+                                                            <img src={h.img} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
+                                                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <div className="w-10 h-10 bg-black/50 rounded-full flex items-center justify-center backdrop-blur-sm">
+                                                                    <Icons.Play />
+                                                                </div>
+                                                            </div>
+                                                            {h.isBestGoal && (
+                                                                <div className="absolute top-2 right-2 bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded">EN İYİ GOL</div>
+                                                            )}
+                                                        </div>
+                                                        <div className="mt-2 text-sm font-bold">{h.title} <span className="text-slate-500 text-xs ml-1">{h.time}</span></div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Live Commentary Feed */}
+                                        <div className="glass-panel rounded-xl p-4 h-48 overflow-y-auto">
+                                            <h3 className="font-display font-bold text-sm text-slate-400 mb-3 sticky top-0 bg-slate-900/90 py-1 z-10 flex items-center gap-2"><Icons.MessageSquare className="w-4 h-4" /> CANLI ANLATIM</h3>
+                                            <div className="space-y-3">
+                                                {data.commentary.map((c, i) => (
+                                                    <div key={i} className="flex gap-3 text-sm border-b border-white/5 pb-2 last:border-0">
+                                                        <span className="font-mono text-hali-blue font-bold w-8">{c.time}</span>
+                                                        <span className={c.type === 'goal' ? 'text-yellow-400 font-bold' : 'text-slate-300'}>{c.text}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Squads Section */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h3 className="font-display font-bold text-2xl">KADROLAR</h3>
+                                        <div className="flex bg-slate-800 rounded-lg p-1">
+                                            <button onClick={() => setViewMode('grid')} className={`p-2 rounded ${viewMode === 'grid' ? 'bg-hali-blue text-white' : 'text-slate-400 hover:text-white'}`}><Icons.LayoutGrid /></button>
+                                            <button onClick={() => setViewMode('formation')} className={`p-2 rounded ${viewMode === 'formation' ? 'bg-hali-blue text-white' : 'text-slate-400 hover:text-white'}`}><Icons.Map /></button>
+                                        </div>
+                                    </div>
+
+                                    {viewMode === 'grid' ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                            <div className="space-y-4">
+                                                <h4 className="font-bold text-hali-blue border-b border-hali-blue/20 pb-2">MAVİ TAKIM</h4>
+                                                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                                    {data.teamA.map(p => <PlayerCard key={p.id} player={p} />)}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-4">
+                                                <h4 className="font-bold text-red-500 border-b border-red-500/20 pb-2">KIRMIZI TAKIM</h4>
+                                                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                                    {data.teamB.map(p => <PlayerCard key={p.id} player={p} />)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <FormationView teamA={data.teamA} teamB={data.teamB} />
+                                    )}
+                                </div>
+
+                                {/* Share Button */}
+                                <div className="flex justify-center pt-8 pb-12">
+                                    <button className="flex items-center gap-2 px-8 py-3 bg-slate-800 hover:bg-slate-700 rounded-full transition-colors font-bold text-sm tracking-widest">
+                                        <Icons.Share2 /> SONUÇLARI PAYLAŞ
+                                    </button>
+                                </div>
+
+                            </div>
+                        )}
+
+                        {/* Highlight Modal */}
+                        {highlight && (
+                            <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setHighlight(null)}>
+                                <div className="bg-slate-900 rounded-2xl overflow-hidden max-w-4xl w-full relative shadow-2xl border border-white/10" onClick={e => e.stopPropagation()}>
+                                    <div className="aspect-video bg-black relative flex items-center justify-center">
+                                        {uploadedVideoUrl ? (
+                                            <video
+                                                src={uploadedVideoUrl}
+                                                controls
+                                                autoPlay
+                                                className="w-full h-full"
+                                            // In a real app, we would set currentTime here based on highlight.time
+                                            />
+                                        ) : (
+                                            <>
+                                                <img src={highlight.img} className="absolute inset-0 w-full h-full object-cover opacity-50" />
+                                                <div className="z-10 text-center">
+                                                    <Icons.Play className="w-16 h-16 text-white opacity-80 mx-auto mb-2" />
+                                                    <p className="text-white font-bold">Video Oynatılıyor...</p>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                    <div className="p-6 flex justify-between items-center bg-slate-900">
+                                        <div>
+                                            <h3 className="font-bold text-xl text-white">{highlight.title}</h3>
+                                            <p className="text-hali-blue font-mono">{highlight.time}</p>
+                                        </div>
+                                        <button onClick={() => setHighlight(null)} className="p-2 hover:bg-slate-800 rounded-full transition-colors"><Icons.X /></button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
