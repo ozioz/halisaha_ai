@@ -4,6 +4,9 @@ HalısahaAI, amatör futbol maçlarını yapay zeka ile analiz ederek profesyone
 
 ![HalısahaAI Arayüzü](https://images.unsplash.com/photo-1579952363873-27f3bde9be2e?w=800&q=80)
 
+## 🌐 Canlı Demo
+[https://halisahaai.netlify.app/](https://halisahaai.netlify.app/)
+
 ## 🚀 Özellikler
 
 *   **Yapay Zeka Destekli Analiz:** YOLOv8 ve OpenCV kullanarak oyuncu takibi, koşu mesafesi ve hız analizi.
